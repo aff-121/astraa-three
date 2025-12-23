@@ -5,22 +5,43 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTicket } from "@/hooks/useTickets";
+import { useRequestRefund } from "@/hooks/useRazorpay";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Share2, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Share2, Loader2, RotateCcw } from "lucide-react";
 import EventTicket from "@/components/EventTicket";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { TicketDetailSkeleton } from "@/components/skeletons";
 import { devLog } from "@/lib/logger";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Page() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { data: ticket, isLoading, error } = useTicket(id || "");
+  const { data: ticket, isLoading, error, refetch } = useTicket(id || "");
   const { toast } = useToast();
   const ticketRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState<string>("");
+  const [refundNotes, setRefundNotes] = useState("");
+  const { requestRefund, isLoading: isRefundLoading } = useRequestRefund();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -245,6 +266,30 @@ export default function Page() {
               </Button>
             </div>
 
+            {/* Refund Button - Only show for paid tickets */}
+            {ticket.payment_status === "captured" && ticket.status === "confirmed" && (
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full rounded-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setRefundDialogOpen(true)}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Request Refund
+                </Button>
+              </div>
+            )}
+
+            {/* Refund Status */}
+            {ticket.payment_status === "refunded" && (
+              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <p className="text-sm text-yellow-500 text-center font-medium">
+                  This ticket has been refunded
+                </p>
+              </div>
+            )}
+
             {/* Purchase Info */}
             <div className="mt-8 p-4 bg-muted rounded-xl">
               <p className="text-xs text-muted-foreground text-center">
@@ -260,6 +305,100 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* Refund Dialog */}
+      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Refund</DialogTitle>
+            <DialogDescription>
+              Please select a reason for requesting a refund. Refunds are typically processed within 2-3 business days.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason for refund</label>
+              <Select value={refundReason} onValueChange={setRefundReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer_request">I changed my mind</SelectItem>
+                  <SelectItem value="event_cancelled">Event was cancelled</SelectItem>
+                  <SelectItem value="duplicate_payment">Duplicate payment</SelectItem>
+                  <SelectItem value="other">Other reason</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Additional notes (optional)</label>
+              <Textarea
+                placeholder="Any additional details..."
+                value={refundNotes}
+                onChange={(e) => setRefundNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Refund amount:</strong> ₹{ticket.total_price.toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setRefundDialogOpen(false)}
+              disabled={isRefundLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!refundReason || !ticket.order_id) {
+                  toast({
+                    title: "Select a reason",
+                    description: "Please select a reason for the refund",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                try {
+                  await requestRefund(
+                    ticket.order_id,
+                    refundReason as 'customer_request' | 'event_cancelled' | 'duplicate_payment' | 'other',
+                    refundNotes
+                  );
+                  toast({
+                    title: "Refund Requested",
+                    description: "Your refund request has been submitted. Processing typically takes 2-3 business days.",
+                  });
+                  setRefundDialogOpen(false);
+                  refetch();
+                } catch (err) {
+                  const message = err instanceof Error ? err.message : "Failed to request refund";
+                  toast({
+                    title: "Refund Failed",
+                    description: message,
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={isRefundLoading || !refundReason}
+            >
+              {isRefundLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Request Refund"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

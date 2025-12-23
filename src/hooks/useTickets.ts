@@ -15,6 +15,9 @@ export interface Ticket {
   status: string;
   qr_code_url: string;
   purchase_time: string;
+  order_id?: string | null;
+  payment_status?: string | null;
+  razorpay_payment_id?: string | null;
   event?: {
     title: string;
     date: string;

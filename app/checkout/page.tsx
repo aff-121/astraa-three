@@ -5,7 +5,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCreateTicket } from "@/hooks/useTickets";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import { ArrowLeft, Calendar, MapPin, Ticket as TicketIcon, CreditCard, Smartphone, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -27,17 +27,42 @@ export default function Page() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
-  const createTicket = useCreateTicket();
 
   const [ticketSelection, setTicketSelection] = useState<TicketSelection | null>(null);
   const [step, setStep] = useState<"details" | "payment" | "success">("details");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | null>(null);
   const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
+
+  // Razorpay hook - prefill will be passed at payment time
+  const { initiatePayment, isScriptLoaded } = useRazorpay({
+    onSuccess: (result) => {
+      setCreatedTicketId(result.ticket?.id || null);
+      setStep("success");
+      sessionStorage.removeItem("ticketSelection");
+      sessionStorage.removeItem("checkoutRedirect");
+      setIsProcessing(false);
+      toast({
+        title: "Payment Successful!",
+        description: "Your tickets have been booked successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment Failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+      setIsProcessing(false);
+    },
+    onDismiss: () => {
+      setIsProcessing(false);
+    },
+  });
 
   // Phone validation function
   const validatePhone = (phoneNumber: string): boolean => {
@@ -109,20 +134,29 @@ export default function Page() {
     }
     if (!ticketSelection || !user) return;
 
+    if (!isScriptLoaded) {
+      toast({
+        title: "Loading Payment Gateway",
+        description: "Please wait while we load the payment gateway...",
+      });
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const ticket = await createTicket.mutateAsync({
+      await initiatePayment({
         eventId: ticketSelection.eventId,
         categoryId: ticketSelection.categoryId,
         quantity: ticketSelection.quantity,
         unitPrice: ticketSelection.unitPrice,
         totalPrice: ticketSelection.totalPrice,
+        paymentMethod: paymentMethod,
+        prefill: {
+          name: fullName,
+          email: email,
+          contact: phone.replace(/\s/g, ""),
+        },
       });
-      setCreatedTicketId(ticket.id);
-      setStep("success");
-      sessionStorage.removeItem("ticketSelection");
-      sessionStorage.removeItem("checkoutRedirect");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
       toast({
@@ -130,8 +164,8 @@ export default function Page() {
         description: message,
         variant: "destructive",
       });
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
   };
 
   if (authLoading) {
@@ -359,8 +393,8 @@ export default function Page() {
                     <h2 className="text-xl font-display font-bold text-foreground mb-6">Payment Method</h2>
                     <div className="space-y-2 sm:space-y-3">
                       {[
-                        { id: "upi", name: "UPI", desc: "Google Pay, PhonePe, Paytm", icon: Smartphone },
-                        { id: "card", name: "Credit/Debit Card", desc: "Visa, Mastercard, RuPay", icon: CreditCard },
+                        { id: "upi" as const, name: "UPI", desc: "Google Pay, PhonePe, Paytm", icon: Smartphone },
+                        { id: "card" as const, name: "Credit/Debit Card", desc: "Visa, Mastercard, RuPay", icon: CreditCard },
                       ].map((method) => (
                         <button
                           key={method.id}

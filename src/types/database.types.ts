@@ -151,6 +151,9 @@ export interface Database {
           qr_code_url: string;
           purchase_time: string;
           created_at: string;
+          order_id: string | null;
+          payment_status: string | null;
+          razorpay_payment_id: string | null;
         };
         Insert: {
           id?: string;
@@ -165,6 +168,9 @@ export interface Database {
           qr_code_url?: string;
           purchase_time?: string;
           created_at?: string;
+          order_id?: string | null;
+          payment_status?: string | null;
+          razorpay_payment_id?: string | null;
         };
         Update: {
           id?: string;
@@ -179,6 +185,164 @@ export interface Database {
           qr_code_url?: string;
           purchase_time?: string;
           created_at?: string;
+          order_id?: string | null;
+          payment_status?: string | null;
+          razorpay_payment_id?: string | null;
+        };
+      };
+      orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          event_id: string;
+          razorpay_order_id: string;
+          amount: number;
+          currency: string;
+          status: string;
+          payment_method: string | null;
+          notes: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          event_id: string;
+          razorpay_order_id: string;
+          amount: number;
+          currency?: string;
+          status?: string;
+          payment_method?: string | null;
+          notes?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event_id?: string;
+          razorpay_order_id?: string;
+          amount?: number;
+          currency?: string;
+          status?: string;
+          payment_method?: string | null;
+          notes?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      payments: {
+        Row: {
+          id: string;
+          order_id: string;
+          razorpay_payment_id: string | null;
+          razorpay_signature: string | null;
+          status: string;
+          amount: number;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          razorpay_payment_id?: string | null;
+          razorpay_signature?: string | null;
+          status?: string;
+          amount: number;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          razorpay_payment_id?: string | null;
+          razorpay_signature?: string | null;
+          status?: string;
+          amount?: number;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      refunds: {
+        Row: {
+          id: string;
+          order_id: string;
+          payment_id: string;
+          razorpay_refund_id: string | null;
+          reason: string;
+          amount: number;
+          status: string;
+          requested_by: string;
+          processed_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          payment_id: string;
+          razorpay_refund_id?: string | null;
+          reason: string;
+          amount: number;
+          status?: string;
+          requested_by: string;
+          processed_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          payment_id?: string;
+          razorpay_refund_id?: string | null;
+          reason?: string;
+          amount?: number;
+          status?: string;
+          requested_by?: string;
+          processed_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      invoices: {
+        Row: {
+          id: string;
+          order_id: string;
+          ticket_id: string;
+          filename: string;
+          storage_path: string;
+          public_url: string | null;
+          signed_url: string | null;
+          file_size: number | null;
+          generated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          ticket_id: string;
+          filename: string;
+          storage_path: string;
+          public_url?: string | null;
+          signed_url?: string | null;
+          file_size?: number | null;
+          generated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          ticket_id?: string;
+          filename?: string;
+          storage_path?: string;
+          public_url?: string | null;
+          signed_url?: string | null;
+          file_size?: number | null;
+          generated_at?: string;
         };
       };
       movies: {
