@@ -8,6 +8,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 'api.qrserver.com' }
     ],
   },
+  // Tempo platform configuration
+  experimental: {
+    serverActions: {
+      allowedOrigins: process.env.TEMPO === "true" ? ["*.tempo.build"] : undefined,
+    },
+  },
 };
 
 export default nextConfig;
